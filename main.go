@@ -16,14 +16,17 @@ import (
 )
 
 type Patient struct {
-	ID            int    `json:"id"`
+	Id            int64  `json:"id"`
 	FirstName     string `json:"firstname"`
 	LastName      string `json:"lastname"`
+	Dob           string `json:"dob"`
 	StreetAddress string `json:"address"`
 	State         string `json:"state"`
 	City          string `json:"city"`
 	Zip           int    `json:"zip"`
+	Email         string `json:"email"`
 	Telephone     int    `json:"telephone"`
+	Appointment   string `json:"appointment"`
 }
 
 type Billing struct {
@@ -54,33 +57,32 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create new Patient Record
-func patientsCreate(w http.ResponseWriter, r *http.Request) {
+func patientsRegister(w http.ResponseWriter, r *http.Request) {
 	var pat Patient //initialize with struct
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(reqBody, &pat)
 	Patients = append(Patients, pat)
 	json.NewEncoder(w).Encode(Patients)
-	log.Println("Endpoint Hit: /create")
+	log.Println("Endpoint Hit: /register")
 }
 
 // Return a single patient record by patient.ID
 func PatientsFind(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	key := vars["ID"]
+	params := mux.Vars(r)
 
 	// Loop over all of our existing PatientRecords
 	for _, pat := range Patients {
-		id, err := strconv.Atoi(key)
+		id, err := strconv.ParseInt(params["id"], 10, 64)
 		if err != nil {
 			// handle error
 			fmt.Println(err)
 			os.Exit(2)
 		}
-		if pat.ID == id {
-			json.NewEncoder(w).Encode(pat.ID)
+		if pat.Id == id {
+			json.NewEncoder(w).Encode(pat)
 		}
 	}
-	log.Println("Endpoint Hit: /find")
+	log.Println("Endpoint Hit: /find/<some_id>")
 }
 
 // Delete a patients record entry
@@ -89,15 +91,18 @@ func PatientsDelete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	for index, pat := range Patients {
-		id, err := strconv.Atoi(params["id"])
+		log.Println(strconv.ParseInt(params["id"], 10, 64))
+		id, err := strconv.ParseInt(params["id"], 10, 64)
 		if err != nil {
 			// handle error
 			fmt.Println(err)
 			os.Exit(2)
 		}
-		if pat.ID == id {
+		if pat.Id == id {
+			fmt.Println(pat)
+			fmt.Println(Patients[:index], Patients[index+1:])
 			Patients = append(Patients[:index], Patients[index+1:]...)
-			json.NewEncoder(w).Encode("Successfully deleted !!!")
+			json.NewEncoder(w).Encode("Successfully deleted - No longer Registered !!!")
 			return
 		}
 	}
@@ -107,22 +112,29 @@ func PatientsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func PatientsEdit(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["ID"])
+	// Get the ID from the url
+	params := mux.Vars(r)
+	var updatedEvent Patient
+	log.Println(strconv.ParseInt(params["id"], 10, 64))
+	eventID, err := strconv.ParseInt(params["id"], 10, 64)
+	// Convert r.Body into a readable format
+	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
-		return
+		fmt.Fprintf(w, "Enter required fields FirstName Lastname Appointment time revised")
 	}
-	var pat Patient
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&pat); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid resquest payload")
-		return
-	}
-	defer r.Body.Close()
-	pat.ID = id
 
-	respondWithJSON(w, http.StatusOK, pat)
+	json.Unmarshal(reqBody, &updatedEvent)
+
+	for i, singleEvent := range Patients {
+		if singleEvent.Id == eventID {
+			singleEvent.FirstName = updatedEvent.FirstName
+			singleEvent.LastName = updatedEvent.LastName
+			singleEvent.Appointment = updatedEvent.Appointment
+			Patients[i] = singleEvent
+			json.NewEncoder(w).Encode(singleEvent)
+		}
+	}
+	log.Println("Endpoint Hit: /edit")
 }
 
 // Get ALL Patients
@@ -144,37 +156,36 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 //jsonHandler returns http response in JSON format.
-func jsonHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	//Construct an initiat Patient object to render
-	pat := Patient{
-		ID:            67890,
-		FirstName:     "John",
-		LastName:      "Doe",
-		StreetAddress: "5678 Some Patient Drive,  Some City USA",
-		State:         "GA",
-		Zip:           67890,
-		Telephone:     4040000000,
-	}
-	log.Println("Endpoint Hit: /json")
-	Patients = append(Patients, pat) //save initial patient in memory
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(Patients)
-	json.NewEncoder(w).Encode(pat)
-}
+// func jsonHandler(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+// 	//Construct an initial Patient object to render
+// 	pat := Patient{
+// 		ID:            67890,
+// 		FirstName:     "John",
+// 		LastName:      "Doe",
+// 		StreetAddress: "5678 Some Patient Drive,  Some City USA",
+// 		State:         "GA",
+// 		Zip:           67890,
+// 		Telephone:     4040000000,
+// 	}
+// 	log.Println("Endpoint Hit: /json")
+// 	Patients = append(Patients, pat) //save initial patient in memory
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(Patients)
+// 	json.NewEncoder(w).Encode(pat)
+// }
 
 // Server initialization and Startup
-
 func serverStart() {
 	// Construct the routing site endpoints
 	router := mux.NewRouter()
-	router.HandleFunc("/json", jsonHandler)
+	//	router.HandleFunc("/json", jsonHandler)
 	router.HandleFunc("/", PatientsAll)
 	router.HandleFunc("/patients", PatientsAll)
-	router.HandleFunc("/find/{id}", PatientsFind)
-	router.HandleFunc("/create", patientsCreate).Methods("POST")
-	router.HandleFunc("/edit/{id}", PatientsEdit)
-	router.HandleFunc("/delete/{id}", PatientsDelete).Methods("DELETE")
+	router.HandleFunc("/find/{id:[0-9]+}", PatientsFind).Methods("GET")
+	router.HandleFunc("/register", patientsRegister).Methods("POST")
+	router.HandleFunc("/edit/{id:[0-9]+}", PatientsEdit).Methods("PUT")
+	router.HandleFunc("/delete/{id:[0-9]+}", PatientsDelete).Methods("DELETE")
 	router.HandleFunc("/health", HealthCheckHandler)
 
 	// TODO need more graceful startup and server shutdown
