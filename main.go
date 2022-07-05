@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -23,9 +24,9 @@ type Patient struct {
 	StreetAddress string `json:"address"`
 	State         string `json:"state"`
 	City          string `json:"city"`
-	Zip           int    `json:"zip"`
+	Zip           string `json:"zip"`
 	Email         string `json:"email"`
-	Telephone     int    `json:"telephone"`
+	Telephone     string `json:"telephone"`
 	Appointment   string `json:"appointment"`
 }
 
@@ -51,13 +52,19 @@ var Patients []Patient // Globally scoped Patient collection to be consulted thr
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	// A very simple health check.
 	w.Header().Set("Content-Type", "application/json")
+
 	w.WriteHeader(http.StatusOK)
 	log.Println("Endpoint Hit: /health")
 	io.WriteString(w, `{"alive": true}`)
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 // Create new Patient Record
 func patientsRegister(w http.ResponseWriter, r *http.Request) {
+
 	var pat Patient //initialize with struct
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(reqBody, &pat)
@@ -88,8 +95,8 @@ func PatientsFind(w http.ResponseWriter, r *http.Request) {
 // Delete a patients record entry
 func PatientsDelete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	for index, pat := range Patients {
 		log.Println(strconv.ParseInt(params["id"], 10, 64))
 		id, err := strconv.ParseInt(params["id"], 10, 64)
@@ -112,6 +119,7 @@ func PatientsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func PatientsEdit(w http.ResponseWriter, r *http.Request) {
+
 	// Get the ID from the url
 	params := mux.Vars(r)
 	var updatedEvent Patient
@@ -139,7 +147,9 @@ func PatientsEdit(w http.ResponseWriter, r *http.Request) {
 
 // Get ALL Patients
 func PatientsAll(w http.ResponseWriter, r *http.Request) {
+
 	log.Println("Endpoint Hit: / or /patients")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	json.NewEncoder(w).Encode(Patients)
 }
@@ -149,6 +159,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})
 }
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+
 	response, _ := json.Marshal(payload)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -193,7 +204,12 @@ func serverStart() {
 	// Start server
 	port := ":8888"
 	fmt.Println("\nListening and serving up content on port " + port)
-	http.ListenAndServe(port, router)
+	// Where ORIGIN_ALLOWED is like `scheme://dns[:port]`, or `*` (insecure)
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
+	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ORIGIN_ALLOWED"), "*"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+
+	http.ListenAndServe(port, handlers.CORS(originsOk, headersOk, methodsOk)(router))
 }
 
 func main() {
