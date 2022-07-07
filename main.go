@@ -16,6 +16,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type reader interface {
+	readll()
+	printall()
+}
 type Patient struct {
 	Id            int64  `json:"id"`
 	FirstName     string `json:"firstname"`
@@ -64,7 +68,6 @@ func enableCors(w *http.ResponseWriter) {
 
 // Create new Patient Record
 func patientsRegister(w http.ResponseWriter, r *http.Request) {
-
 	var pat Patient //initialize with struct
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(reqBody, &pat)
