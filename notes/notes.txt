@@ -1,0 +1,8 @@
+Patient{ID:            67890, FirstName:     "John", LastName:      "Doe", StreetAddress: "5678 Some Patient Drive,  Some City USA", State:         "GA", Zip:           67890, Telephone:     4040000000,}
+
+
+Need to create an initial patient entry either manually at register endpoint by either command line , POSTMAN , or uncommenting a helper handler function “json” found here:
+
+ Known issues: May find rendering issues below given your browser specifics related to CORS (cross-origin policy) … to
+
+Access to fetch at 'http://localhost:8888/patients' from origin 'http://localhost:3000' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. If an opaque response serves your needs, set the request's mode to 'no-cors' to fetch the resource with CORS disabled.
